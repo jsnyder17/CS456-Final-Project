@@ -23,6 +23,7 @@ enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
 enum MaterialBuffer_IDs {MaterialBuffer, NumMaterialBuffers};
 enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic};
 enum Textures {Blank, NumTextures};
+enum LightNames {WhitePointLight};
 
 // Vertex array and buffer objects
 GLuint VAOs[NumVAOs];
@@ -120,6 +121,7 @@ vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 vec3 y_axis = { 0.0f, 1.0f, 0.0f };
 vec3 z_axis = { 0.0f, 0.0f, 1.0f };
 int spotlight_index = 0;
+float ortho_constant = 7.0f;
 
 void display();
 void render_scene();
@@ -129,7 +131,8 @@ void build_materials( );
 void build_lights( );
 void build_textures();
 void load_model(const char * filename, GLuint obj);
-void load_texture(const char * filename, GLuint texID, GLint magFilter, GLint minFilter, GLint sWrap, GLint tWrap, bool mipMap, bool invert);
+void load_texture(const char * filename, GLuint texID, GLint magFilter, GLint minFilter, GLint sWrap, GLint tWrap,
+                  bool mipMap, bool invert);
 void draw_color_obj(GLuint obj, GLuint color);
 void draw_mat_object(GLuint obj, GLuint material);
 void draw_tex_object(GLuint obj, GLuint texture);
@@ -158,7 +161,9 @@ int main(int argc, char**argv)
     glfwSetMouseButtonCallback(window, mouse_callback);
 
     // Load shaders and associate variables
-    ShaderInfo default_shaders[] = { {GL_VERTEX_SHADER, default_vertex_shader},{GL_FRAGMENT_SHADER, default_frag_shader},{GL_NONE, NULL} };
+    ShaderInfo default_shaders[] = { {GL_VERTEX_SHADER, default_vertex_shader},
+                                     {GL_FRAGMENT_SHADER, default_frag_shader},
+                                     {GL_NONE, NULL} };
     default_program = LoadShaders(default_shaders);
     default_vPos = glGetAttribLocation(default_program, "vPosition");
     default_vCol = glGetAttribLocation(default_program, "vColor");
@@ -168,7 +173,9 @@ int main(int argc, char**argv)
 
     // Load shaders
     // Load light shader
-    ShaderInfo lighting_shaders[] = { {GL_VERTEX_SHADER, lighting_vertex_shader},{GL_FRAGMENT_SHADER, lighting_frag_shader},{GL_NONE, NULL} };
+    ShaderInfo lighting_shaders[] = { {GL_VERTEX_SHADER, lighting_vertex_shader},
+                                      {GL_FRAGMENT_SHADER, lighting_frag_shader},
+                                      {GL_NONE, NULL} };
     lighting_program = LoadShaders(lighting_shaders);
     lighting_vPos = glGetAttribLocation(lighting_program, "vPosition");
     lighting_vNorm = glGetAttribLocation(lighting_program, "vNormal");
@@ -184,7 +191,9 @@ int main(int argc, char**argv)
     lighting_eye_loc = glGetUniformLocation(lighting_program, "EyePosition");
 
     // Load texture shaders
-    ShaderInfo texture_shaders[] = { {GL_VERTEX_SHADER, texture_vertex_shader},{GL_FRAGMENT_SHADER, texture_frag_shader},{GL_NONE, NULL} };
+    ShaderInfo texture_shaders[] = { {GL_VERTEX_SHADER, texture_vertex_shader},
+                                     {GL_FRAGMENT_SHADER, texture_frag_shader},
+                                     {GL_NONE, NULL} };
     texture_program = LoadShaders(texture_shaders);
     texture_vPos = glGetAttribLocation(texture_program, "vPosition");
     texture_vTex = glGetAttribLocation(texture_program, "vTexCoord");
@@ -252,7 +261,8 @@ void display( )
     }
 
     // DEFAULT ORTHOGRAPHIC PROJECTION
-    proj_matrix = ortho(-5.0f*xratio, 5.0f*xratio, -5.0f*yratio, 5.0f*yratio, -5.0f, 5.0f);
+    proj_matrix = ortho(-ortho_constant * xratio, ortho_constant * xratio, -ortho_constant * yratio,
+                        ortho_constant * yratio, -ortho_constant, ortho_constant);
 
     // Set camera matrix
     camera_matrix = lookat(eye, center, up);
@@ -361,11 +371,16 @@ void build_geometry( )
 
     // Build color buffers
     // Define cube vertex colors (red)
-    build_solid_color_buffer(numVertices[Cube], vec4(1.0f, 0.0f, 0.0f, 1.0f), RedCube);
-    build_solid_color_buffer(numVertices[Cube], vec4(1.0f, 1.0f, 1.0f, 1.0f), WhiteCube);
-    build_solid_color_buffer(numVertices[Octahedron], vec4(0.0f, 0.0f, 1.0f, 1.0f), BlueOcta);
-    build_solid_color_buffer(numVertices[Sphere], vec4(0.0f, 1.0f, 0.0f, 1.0f), GreenSphere);
-    build_solid_color_buffer(numVertices[Cylinder], vec4(1.0f, 1.0f, 0.0f, 1.0f), SomethingCylinder);
+    build_solid_color_buffer(numVertices[Cube],
+                             vec4(1.0f, 0.0f, 0.0f, 1.0f), RedCube);
+    build_solid_color_buffer(numVertices[Cube],
+                             vec4(1.0f, 1.0f, 1.0f, 1.0f), WhiteCube);
+    build_solid_color_buffer(numVertices[Octahedron],
+                             vec4(0.0f, 0.0f, 1.0f, 1.0f), BlueOcta);
+    build_solid_color_buffer(numVertices[Sphere],
+                             vec4(0.0f, 1.0f, 0.0f, 1.0f), GreenSphere);
+    build_solid_color_buffer(numVertices[Cylinder],
+                             vec4(1.0f, 1.0f, 0.0f, 1.0f), SomethingCylinder);
 }
 
 void build_materials( ) {
@@ -427,7 +442,21 @@ void build_lights( ) {
             {0.0f, 0.0f}  //pad2
     };
 
+    LightProperties whitePointLightAgain = {
+            POINT, //type
+            {0.0f, 0.0f, 0.0f}, //pad
+            vec4(0.0f, 0.0f, 0.0f, 1.0f), //ambient
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //diffuse
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //specular
+            vec4(6.0f, 4.0f, 0.0f, 1.0f),  //position
+            vec4(0.0f, 0.0f, 0.0f, 0.0f), //direction
+            0.0f,   //cutoff
+            0.0f,  //exponent
+            {0.0f, 0.0f}  //pad2
+    };
+
     Lights.push_back(whitePointLight);
+    Lights.push_back(whitePointLightAgain);
 
     // Set numLights
     numLights = Lights.size();
@@ -449,7 +478,8 @@ void build_textures( ) {
     glGenTextures( NumTextures,  TextureIDs);
     glActiveTexture( GL_TEXTURE0 );
 
-    load_texture(blankFile, Blank, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(blankFile, Blank, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -459,7 +489,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
 
     if (key == GLFW_KEY_0 && action == GLFW_RELEASE) {
-        lightOn[spotlight_index] = (lightOn[spotlight_index]+1)%2;
+        lightOn[WhitePointLight] = (lightOn[WhitePointLight]+1)%2;
+        lightOn[WhitePointLight + 1] = (lightOn[WhitePointLight + 1]+1)%2;
     }
 
     // Adjust azimuth
