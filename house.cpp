@@ -16,14 +16,14 @@ using namespace vmath;
 using namespace std;
 
 // Vertex array and buffer names
-enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, NumVAOs};
+enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, NumVAOs};
 enum ObjBuffer_IDs {PosBuffer, NormBuffer, TexBuffer, NumObjBuffers};
 enum Color_Buffer_IDs {RedCube, WhiteCube, BlueOcta, GreenSphere, SomethingCylinder, NumColorBuffers};
 enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
 enum MaterialBuffer_IDs {MaterialBuffer, NumMaterialBuffers};
-enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic};
+enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic, YellowPlastic};
 enum Textures {Blank, NumTextures};
-enum LightNames {WhitePointLight};
+enum LightNames {WhitePointLight, WhitePointLightAgain};
 
 // Vertex array and buffer objects
 GLuint VAOs[NumVAOs];
@@ -47,6 +47,9 @@ const char * cubeFile = "../models/unitcube.obj";
 const char * octaFile = "../models/octahedron.obj";
 const char * sphereFile = "../models/sphere.obj";
 const char * cylinderFile = "../models/cylinder.obj";
+const char * susFile = "../models/sus.obj";
+const char * couchFile = "../models/couch.obj";
+const char * vicFile = "../models/vic.obj";
 
 // Texture files
 const char * blankFile = "../textures/blank.png";
@@ -116,15 +119,18 @@ GLint ww,hh;
 
 // My constants
 mat4 wall_scale_matrix = scale(7.025f, 2.0f, 1.0f);
+mat4 floor_scale_matrix = scale(7.0f, 0.1f, 7.0f);
 mat4 obj_scale_matrix = scale(0.5f, 0.5f, 0.5f);
 vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 vec3 y_axis = { 0.0f, 1.0f, 0.0f };
 vec3 z_axis = { 0.0f, 0.0f, 1.0f };
-int spotlight_index = 0;
 float ortho_constant = 7.0f;
 
 void display();
 void render_scene();
+void render_walls();
+void render_floor();
+void render_objects();
 void build_geometry();
 void build_solid_color_buffer(GLuint num_vertices, vec4 color, GLuint buffer);
 void build_materials( );
@@ -140,8 +146,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
 
-int main(int argc, char**argv)
-{
+int main(int argc, char**argv) {
 	// Create OpenGL window
 	GLFWwindow* window = CreateWindow("Think Inside The Box");
     if (!window) {
@@ -237,8 +242,7 @@ int main(int argc, char**argv)
 
 }
 
-void display( )
-{
+void display() {
     // Declare projection and camera matrices
     proj_matrix = mat4().identity();
     camera_matrix = mat4().identity();
@@ -274,18 +278,23 @@ void display( )
 	glFlush();
 }
 
-void render_scene( ) {
+void render_scene() {
+    render_walls();
+    render_floor();
+    render_objects();
+}
+
+void render_walls() {
     // Declare transformation matrices
     model_matrix = mat4().identity();
     mat4 scale_matrix = mat4().identity();
     mat4 rot_matrix = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
-    // Set cube transformation matrix
     trans_matrix = translate(0.0f, 0.0f, 4.0f);
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = wall_scale_matrix;
-	model_matrix = trans_matrix*rot_matrix*scale_matrix;
+    model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
     draw_mat_object(Cube, RedPlastic);
@@ -317,46 +326,61 @@ void render_scene( ) {
     // Draw cube
     draw_mat_object(Cube, RedPlastic);
     //draw_color_obj(Cube, RedCube);
+}
+
+void render_floor() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
 
     // Draw floor
     trans_matrix = translate(0.0f, -1.0f, 0.0f);
-    scale_matrix = scale(7.0f, 0.1f, 7.0f);
+    scale_matrix = floor_scale_matrix;
     model_matrix = trans_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
     draw_mat_object(Cube, WhitePlastic);
     //draw_color_obj(Cube, WhiteCube);
+}
 
-    trans_matrix = translate(-1.0f, 0.0f, 0.0f);
-    rot_matrix = rotate(90.0f, z_axis);
-    scale_matrix = obj_scale_matrix;
+void render_objects() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    trans_matrix = translate(-1.0f, -1.0f, 0.0f);
+    rot_matrix = rotate(0.0f, z_axis);
+    scale_matrix = scale(20.0f, 20.0f, 20.0f);
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw octahedron
-    draw_mat_object(Octahedron, RedPlastic);
+    draw_mat_object(Vic, YellowPlastic);
     //draw_color_obj(Octahedron, BlueOcta);
 
-    trans_matrix = translate(-1.0f, 0.0f, 2.0f);
-    rot_matrix = rotate(90.0f, z_axis);
-    scale_matrix = obj_scale_matrix;
+    trans_matrix = translate(-1.0f, -1.0f, 2.0f);
+    rot_matrix = rotate(0.0f, z_axis);
+    scale_matrix = scale(0.3f, 0.3f, 0.3f);
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw sphere
-    draw_mat_object(Sphere, GreenPlastic);
+    draw_mat_object(Sus, GreenPlastic);
     //draw_color_obj(Sphere, GreenSphere);
 
-    trans_matrix = translate(0.0f, 0.0f, -1.0f);
-    rot_matrix = rotate(90.0f, z_axis);
-    scale_matrix = obj_scale_matrix;
+    trans_matrix = translate(2.0f, -0.85f, -3.0f);
+    rot_matrix = rotate(0.0f, z_axis);
+    scale_matrix = scale(1.0f, 1.0f, 1.0f);
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cylinder
-    draw_mat_object(Cylinder, BluePlastic);
+    draw_mat_object(Couch, BluePlastic);
     //draw_color_obj(Cylinder, SomethingCylinder);
 }
 
-void build_geometry( )
-{
+void build_geometry() {
     // Generate vertex arrays and buffers
     glGenVertexArrays(NumVAOs, VAOs);
 
@@ -365,6 +389,9 @@ void build_geometry( )
     load_model(octaFile, Octahedron);
     load_model(sphereFile, Sphere);
     load_model(cylinderFile, Cylinder);
+    load_model(susFile, Sus);
+    load_model(couchFile, Couch);
+    load_model(vicFile, Vic);
 
     // Generate color buffers
     glGenBuffers(NumColorBuffers, ColorBuffers);
@@ -383,7 +410,7 @@ void build_geometry( )
                              vec4(1.0f, 1.0f, 0.0f, 1.0f), SomethingCylinder);
 }
 
-void build_materials( ) {
+void build_materials() {
     // Add materials to Materials vector
     MaterialProperties redPlastic = {
             vec4(0.3f, 0.0f, 0.0f, 1.0f), //ambient
@@ -417,14 +444,24 @@ void build_materials( ) {
             {0.0f, 0.0f, 0.0f}  //pad
     };
 
+    MaterialProperties yellowPlastic = {
+            vec4(0.4f, 0.4f, 0.1f, 1.0f), //ambient
+            vec4(0.6f, 0.6f, 0.1f, 1.0f), //diffuse
+            vec4(0.8f, 0.8f, 0.2f, 1.0f), //specular
+            27.8f, //shininess
+            {0.0f, 0.0f, 0.0f}  //pad
+    };
+
     Materials.push_back(redPlastic);
     Materials.push_back(greenPlastic);
     Materials.push_back(bluePlastic);
     Materials.push_back(whitePlastic);
+    Materials.push_back(yellowPlastic);
 
     glGenBuffers(NumMaterialBuffers, MaterialBuffers);
     glBindBuffer(GL_UNIFORM_BUFFER, MaterialBuffers[MaterialBuffer]);
-    glBufferData(GL_UNIFORM_BUFFER, Materials.size()*sizeof(MaterialProperties), Materials.data(), GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, Materials.size()*sizeof(MaterialProperties), Materials.data(),
+                 GL_STATIC_DRAW);
 }
 
 void build_lights( ) {
@@ -469,10 +506,11 @@ void build_lights( ) {
     // Create uniform buffer for lights
     glGenBuffers(NumLightBuffers, LightBuffers);
     glBindBuffer(GL_UNIFORM_BUFFER, LightBuffers[LightBuffer]);
-    glBufferData(GL_UNIFORM_BUFFER, Lights.size()*sizeof(LightProperties), Lights.data(), GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, Lights.size()*sizeof(LightProperties), Lights.data(),
+                 GL_STATIC_DRAW);
 }
 
-void build_textures( ) {
+void build_textures() {
 
     // Create textures and activate unit 0
     glGenTextures( NumTextures,  TextureIDs);
@@ -490,7 +528,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
     if (key == GLFW_KEY_0 && action == GLFW_RELEASE) {
         lightOn[WhitePointLight] = (lightOn[WhitePointLight]+1)%2;
-        lightOn[WhitePointLight + 1] = (lightOn[WhitePointLight + 1]+1)%2;
+    }
+
+    if (key == GLFW_KEY_1 && action == GLFW_RELEASE) {
+        lightOn[WhitePointLightAgain] = (lightOn[WhitePointLightAgain]+1)%2;
     }
 
     // Adjust azimuth
@@ -534,7 +575,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
 }
 
-void mouse_callback(GLFWwindow *window, int button, int action, int mods){
+void mouse_callback(GLFWwindow *window, int button, int action, int mods) {
 
 }
 
