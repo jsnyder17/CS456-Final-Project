@@ -16,14 +16,14 @@ using namespace vmath;
 using namespace std;
 
 // Vertex array and buffer names
-enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, NumVAOs};
+enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, Chair, CeilingFan, NumVAOs};
 enum ObjBuffer_IDs {PosBuffer, NormBuffer, TexBuffer, NumObjBuffers};
 enum Color_Buffer_IDs {RedCube, WhiteCube, BlueOcta, GreenSphere, SomethingCylinder, NumColorBuffers};
 enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
 enum MaterialBuffer_IDs {MaterialBuffer, NumMaterialBuffers};
 enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic, YellowPlastic, BrownPlastic};
 enum Textures {Blank, Megadeth, Babcock, Hake, Moscola, Zeller, Floor, NumTextures};
-enum LightNames {WhitePointLight, DoorLight, PaintingLight};
+enum LightNames {WhitePointLight, DoorLight, PaintingLight, CeilingFanLight};
 
 // Vertex array and buffer objects
 GLuint VAOs[NumVAOs];
@@ -50,7 +50,9 @@ const char * cylinderFile = "../models/cylinder.obj";
 const char * susFile = "../models/sus.obj";
 const char * couchFile = "../models/couch.obj";
 const char * vicFile = "../models/vic.obj";
-const char * tableFile = "../models/table.obj";
+const char * tableFile = "../models/round_table_again.obj";
+const char * chairFile = "../models/chair_again.obj";
+const char * ceilingFanFile = "../models/ceiling_fan_again.obj";
 
 // Texture files
 const char * blankFile = "../textures/blank.png";
@@ -130,6 +132,7 @@ mat4 floor_scale_matrix = scale(7.0f, 0.1f, 7.0f);
 mat4 obj_scale_matrix = scale(0.5f, 0.5f, 0.5f);
 vec3 door_coords = vec3(3.5f, 0.0f, -1.25f);
 vec3 painting_coords = vec3(0.0f, 1.0f, 3.5f);
+vec3 ceiling_fan_coords = vec3(0.0f, -0.7f, 0.0f);
 vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 vec3 y_axis = { 0.0f, 1.0f, 0.0f };
 vec3 z_axis = { 0.0f, 0.0f, 1.0f };
@@ -156,6 +159,8 @@ void render_floor();
 void render_ceiling();
 void render_objects();
 void render_table();
+void render_chairs();
+void render_ceiling_fan();
 void build_geometry();
 void build_solid_color_buffer(GLuint num_vertices, vec4 color, GLuint buffer);
 void build_materials( );
@@ -341,6 +346,8 @@ void render_scene() {
     render_ceiling();
     render_objects();
     render_table();
+    render_chairs();
+    render_ceiling_fan();
 }
 
 void render_walls() {
@@ -461,7 +468,7 @@ void render_objects() {
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = scale(1.50f, 1.75f, 0.1f);
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
-    draw_tex_object(Cube, Megadeth);
+    draw_tex_object(Cube, Hake);
 }
 
 void render_table() {
@@ -471,12 +478,52 @@ void render_table() {
     mat4 rot_matrix = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
-    // Draw floor
-    trans_matrix = translate(0.0f, 0.0f, 0.0f);
+    // Draw table
+    trans_matrix = translate(0.0f, -1.0f, 0.0f);
     scale_matrix = scale(0.5f, 0.5f, 0.5f);
     model_matrix = trans_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     draw_mat_object(Table, BrownPlastic);
+}
+
+void render_chairs() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 rot_2_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    // Draw chairs
+    trans_matrix = translate(0.0f, -1.0f, -1.0f);
+    scale_matrix = scale(0.01f, 0.01f, 0.01f);
+    rot_matrix = rotate(270.0f, x_axis);
+    model_matrix = trans_matrix*scale_matrix*rot_matrix;
+    normal_matrix = model_matrix.inverse().transpose();
+    draw_mat_object(Chair, BrownPlastic);
+
+    trans_matrix = translate(0.0f, -1.0f, 1.0f);
+    scale_matrix = scale(0.01f, 0.01f, 0.01f);
+    rot_matrix = rotate(270.0f, x_axis);
+    rot_2_matrix = rotate(180.0f, z_axis);
+    model_matrix = trans_matrix*scale_matrix*rot_matrix*rot_2_matrix;
+    normal_matrix = model_matrix.inverse().transpose();
+    draw_mat_object(Chair, BrownPlastic);
+}
+
+void render_ceiling_fan() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    // Draw fan
+    trans_matrix = translate(ceiling_fan_coords);
+    scale_matrix = scale(0.004f, 0.004f, 0.004f);
+    model_matrix = trans_matrix*scale_matrix;
+    normal_matrix = model_matrix.inverse().transpose();
+    draw_mat_object(CeilingFan, YellowPlastic);
 }
 
 void build_geometry() {
@@ -492,6 +539,8 @@ void build_geometry() {
     load_model(couchFile, Couch);
     load_model(vicFile, Vic);
     load_model(tableFile, Table);
+    load_model(chairFile, Chair);
+    load_model(ceilingFanFile, CeilingFan);
 
     // Generate color buffers
     glGenBuffers(NumColorBuffers, ColorBuffers);
@@ -614,9 +663,23 @@ void build_lights( ) {
             {0.0f, 0.0f}  //pad2
     };
 
+    LightProperties ceilingFanLight = {
+            SPOT, //type
+            {0.0f, 0.0f, 0.0f}, //pad
+            vec4(0.2f, 0.2f, 0.2f, 1.0f), //ambient
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //diffuse
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //specular
+            vec4(ceiling_fan_coords[x], 9.0f, ceiling_fan_coords[z], 1.0f),  //position
+            vec4(0.0f, -1.0f, 0.0f, 0.0f), //direction
+            10.0f,   //cutoff
+            10.0f,  //exponent
+            {0.0f, 0.0f}  //pad2
+    };
+
     Lights.push_back(whitePointLight);
     Lights.push_back(doorLight);
     Lights.push_back(paintingLight);
+    Lights.push_back(ceilingFanLight);
 
     // Set numLights
     numLights = Lights.size();
@@ -671,6 +734,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
     if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
         lightOn[PaintingLight] = (lightOn[PaintingLight] + 1) % 2;
+    }
+
+    if (key == GLFW_KEY_3 && action == GLFW_PRESS) {
+        lightOn[CeilingFanLight] = (lightOn[CeilingFanLight] + 1) % 2;
     }
 
     if (key == GLFW_KEY_O && action == GLFW_PRESS) {
