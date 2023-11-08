@@ -16,14 +16,14 @@ using namespace vmath;
 using namespace std;
 
 // Vertex array and buffer names
-enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, NumVAOs};
+enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, NumVAOs};
 enum ObjBuffer_IDs {PosBuffer, NormBuffer, TexBuffer, NumObjBuffers};
 enum Color_Buffer_IDs {RedCube, WhiteCube, BlueOcta, GreenSphere, SomethingCylinder, NumColorBuffers};
 enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
 enum MaterialBuffer_IDs {MaterialBuffer, NumMaterialBuffers};
-enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic, YellowPlastic};
-enum Textures {Blank, NumTextures};
-enum LightNames {WhitePointLight, WhitePointLightAgain};
+enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic, YellowPlastic, BrownPlastic};
+enum Textures {Blank, Megadeth, Babcock, Hake, Moscola, Zeller, Floor, NumTextures};
+enum LightNames {WhitePointLight, DoorLight, PaintingLight};
 
 // Vertex array and buffer objects
 GLuint VAOs[NumVAOs];
@@ -50,9 +50,16 @@ const char * cylinderFile = "../models/cylinder.obj";
 const char * susFile = "../models/sus.obj";
 const char * couchFile = "../models/couch.obj";
 const char * vicFile = "../models/vic.obj";
+const char * tableFile = "../models/table.obj";
 
 // Texture files
 const char * blankFile = "../textures/blank.png";
+const char * megadethFile = "../megadeth_poster.jpeg";
+const char * babcockFile = "../textures/babcock.png";
+const char * hakeFile = "../textures/hake.jpeg";
+const char * moscolaFile = "../textures/moscola.jpeg";
+const char * zellerFile = "../textures/zeller.png";
+const char * floorFile = "../textures/floor.jpg";
 
 // Camera
 vec3 eye = {3.0f, 0.0f, 0.0f};
@@ -118,19 +125,37 @@ GLint lightOn[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 GLint ww,hh;
 
 // My constants
-mat4 wall_scale_matrix = scale(7.025f, 2.0f, 1.0f);
+mat4 wall_scale_matrix = scale(7.025f, 4.0f, 1.0f);
 mat4 floor_scale_matrix = scale(7.0f, 0.1f, 7.0f);
 mat4 obj_scale_matrix = scale(0.5f, 0.5f, 0.5f);
+vec3 door_coords = vec3(3.5f, 0.0f, -1.25f);
+vec3 painting_coords = vec3(0.0f, 1.0f, 3.5f);
 vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 vec3 y_axis = { 0.0f, 1.0f, 0.0f };
 vec3 z_axis = { 0.0f, 0.0f, 1.0f };
-float ortho_constant = 7.0f;
+vec3 first_person_center = {0.0f, 0.0f, 0.0f};
+vec3 first_person_dir = { 0.0f, 0.0f, 0.0f };
+vec3 first_person_eye = {0.0f, 0.5f, 0.0f};
+GLfloat ortho_constant = 7.0f;
+GLfloat pyr_angle = 0.0f;
+GLfloat rpm = 3.0f;
+GLfloat camera_angle = 180.0f;
+GLfloat step_size = 0.1f;
+GLdouble elTime = 0.0;
+GLboolean pyr_dance = false;
+GLboolean first_person = false;
+GLint x = 0; GLint y = 1; GLint z = 2;
 
 void display();
+void calculate_first_person_camera();
+void update_animations();
 void render_scene();
 void render_walls();
+void render_door();
 void render_floor();
+void render_ceiling();
 void render_objects();
+void render_table();
 void build_geometry();
 void build_solid_color_buffer(GLuint num_vertices, vec4 color, GLuint buffer);
 void build_materials( );
@@ -226,20 +251,47 @@ int main(int argc, char**argv) {
     z = (GLfloat)(radius*cos(azimuth*DEG2RAD)*sin(elevation*DEG2RAD));
     eye = vec3(x, y, z);
 
+    // Get initial time
+    elTime = glfwGetTime();
+
     // Start loop
     while ( !glfwWindowShouldClose( window ) ) {
     	// Draw graphics
         display();
         // Update other events like input handling
         glfwPollEvents();
+
+        // Update time-based animations
+        update_animations();
+
         // Swap buffer onto screen
         glfwSwapBuffers( window );
+
+        // Calculate first person camera coordinates
+        calculate_first_person_camera();
     }
 
     // Close window
     glfwTerminate();
     return 0;
 
+}
+
+void calculate_first_person_camera() {
+    first_person_center[x] = first_person_eye[x] + cos(camera_angle);
+    first_person_center[y] = first_person_eye[y];
+    first_person_center[z] = first_person_eye[z] + sin(camera_angle);
+}
+
+void update_animations() {
+    GLdouble curTime = glfwGetTime();
+    GLdouble dT = curTime - elTime;
+
+    if (pyr_dance) {
+        pyr_angle += dT * (rpm / 60.0) * 360.0;
+    }
+
+    elTime = curTime;
 }
 
 void display() {
@@ -264,12 +316,16 @@ void display() {
         xratio = (GLfloat)ww / (GLfloat)hh;
     }
 
-    // DEFAULT ORTHOGRAPHIC PROJECTION
-    proj_matrix = ortho(-ortho_constant * xratio, ortho_constant * xratio, -ortho_constant * yratio,
-                        ortho_constant * yratio, -ortho_constant, ortho_constant);
+    // Projections
+    if (!first_person) {
+        proj_matrix = ortho(-ortho_constant * xratio, ortho_constant * xratio, -ortho_constant * yratio,
+                            ortho_constant * yratio, -ortho_constant, ortho_constant);
+        camera_matrix = lookat(eye, center, up);
 
-    // Set camera matrix
-    camera_matrix = lookat(eye, center, up);
+    } else {
+        proj_matrix = frustum(-1.0f * xratio, 1.0f * xratio, -1.0f * yratio, 1.0f * yratio, 1.0f, 100.0f);
+        camera_matrix = lookat(first_person_eye, first_person_center, up);
+    }
 
     // Render objects
 	render_scene();
@@ -280,8 +336,11 @@ void display() {
 
 void render_scene() {
     render_walls();
+    render_door();
     render_floor();
+    render_ceiling();
     render_objects();
+    render_table();
 }
 
 void render_walls() {
@@ -291,41 +350,61 @@ void render_walls() {
     mat4 rot_matrix = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
-    trans_matrix = translate(0.0f, 0.0f, 4.0f);
+    trans_matrix = translate(0.0f, 1.0f, 4.0f);
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = wall_scale_matrix;
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
-    draw_mat_object(Cube, RedPlastic);
+    draw_mat_object(Cube, BrownPlastic);
     //draw_color_obj(Cube, RedCube);
 
-    trans_matrix = translate(4.0f, 0.0f, 0.0f);
+    trans_matrix = translate(4.0f, 1.0f, 0.0f);
     rot_matrix = rotate(90.0f, y_axis);
     scale_matrix = wall_scale_matrix;
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
-    draw_mat_object(Cube, RedPlastic);
+    draw_mat_object(Cube, BrownPlastic);
     //draw_color_obj(Cube, RedCube);
 
-    trans_matrix = translate(0.0f, 0.0f, -4.0f);
+    trans_matrix = translate(0.0f, 1.0f, -4.0f);
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = wall_scale_matrix;
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
-    draw_mat_object(Cube, RedPlastic);
+    draw_mat_object(Cube, BrownPlastic);
     //draw_color_obj(Cube, RedCube);
 
-    trans_matrix = translate(-4.0f, 0.0f, 0.0f);
+    trans_matrix = translate(-4.0f, 1.0f, 0.0f);
     rot_matrix = rotate(90.0f, y_axis);
     scale_matrix = wall_scale_matrix;
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     // Draw cube
-    draw_mat_object(Cube, RedPlastic);
+    draw_mat_object(Cube, BrownPlastic);
     //draw_color_obj(Cube, RedCube);
+}
+
+void render_door() {
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    // Door
+    trans_matrix = translate(door_coords);
+    scale_matrix = scale(1.5f, 2.0f, 0.1f);
+    rot_matrix = rotate(90.0f, y_axis);
+    model_matrix = trans_matrix * rot_matrix * scale_matrix;
+    draw_mat_object(Cube, WhitePlastic);
+
+    // Knob
+    trans_matrix = translate(3.45f, 0.0f, -0.75f);
+    scale_matrix = scale(0.1f, 0.1f, 0.1f);
+    model_matrix = trans_matrix * scale_matrix;
+    draw_mat_object(Sphere, YellowPlastic);
 }
 
 void render_floor() {
@@ -340,9 +419,22 @@ void render_floor() {
     scale_matrix = floor_scale_matrix;
     model_matrix = trans_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
-    // Draw cube
     draw_mat_object(Cube, WhitePlastic);
-    //draw_color_obj(Cube, WhiteCube);
+}
+
+void render_ceiling() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    // Draw ceiling
+    trans_matrix = translate(0.0f, 3.0f, 0.0f);
+    scale_matrix = floor_scale_matrix;
+    model_matrix = trans_matrix*scale_matrix;
+    normal_matrix = model_matrix.inverse().transpose();
+    draw_mat_object(Cube, WhitePlastic);
 }
 
 void render_objects() {
@@ -352,32 +444,39 @@ void render_objects() {
     mat4 rot_matrix = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
-    trans_matrix = translate(-1.0f, -1.0f, 0.0f);
-    rot_matrix = rotate(0.0f, z_axis);
-    scale_matrix = scale(20.0f, 20.0f, 20.0f);
-    model_matrix = trans_matrix*rot_matrix*scale_matrix;
-    normal_matrix = model_matrix.inverse().transpose();
-    // Draw octahedron
-    draw_mat_object(Vic, YellowPlastic);
-    //draw_color_obj(Octahedron, BlueOcta);
-
-    trans_matrix = translate(-1.0f, -1.0f, 2.0f);
-    rot_matrix = rotate(0.0f, z_axis);
-    scale_matrix = scale(0.3f, 0.3f, 0.3f);
-    model_matrix = trans_matrix*rot_matrix*scale_matrix;
-    normal_matrix = model_matrix.inverse().transpose();
-    // Draw sphere
-    draw_mat_object(Sus, GreenPlastic);
-    //draw_color_obj(Sphere, GreenSphere);
+    trans_matrix = translate(-3.5f, 1.0f, -0.5f);
+    scale_matrix = scale(4.5f, 3.5f, 0.1f);
+    rot_matrix = rotate(90.0f, y_axis);
+    model_matrix = trans_matrix * rot_matrix * scale_matrix;
+    draw_mat_object(Cube, RedPlastic);
 
     trans_matrix = translate(2.0f, -0.85f, -3.0f);
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = scale(1.0f, 1.0f, 1.0f);
     model_matrix = trans_matrix*rot_matrix*scale_matrix;
     normal_matrix = model_matrix.inverse().transpose();
-    // Draw cylinder
     draw_mat_object(Couch, BluePlastic);
-    //draw_color_obj(Cylinder, SomethingCylinder);
+
+    trans_matrix = translate(painting_coords);
+    rot_matrix = rotate(0.0f, z_axis);
+    scale_matrix = scale(1.50f, 1.75f, 0.1f);
+    model_matrix = trans_matrix*rot_matrix*scale_matrix;
+    draw_tex_object(Cube, Megadeth);
+}
+
+void render_table() {
+    // Declare transformation matrices
+    model_matrix = mat4().identity();
+    mat4 scale_matrix = mat4().identity();
+    mat4 rot_matrix = mat4().identity();
+    mat4 trans_matrix = mat4().identity();
+
+    // Draw floor
+    trans_matrix = translate(0.0f, 0.0f, 0.0f);
+    scale_matrix = scale(0.5f, 0.5f, 0.5f);
+    model_matrix = trans_matrix*scale_matrix;
+    normal_matrix = model_matrix.inverse().transpose();
+    draw_mat_object(Table, BrownPlastic);
 }
 
 void build_geometry() {
@@ -392,6 +491,7 @@ void build_geometry() {
     load_model(susFile, Sus);
     load_model(couchFile, Couch);
     load_model(vicFile, Vic);
+    load_model(tableFile, Table);
 
     // Generate color buffers
     glGenBuffers(NumColorBuffers, ColorBuffers);
@@ -452,11 +552,20 @@ void build_materials() {
             {0.0f, 0.0f, 0.0f}  //pad
     };
 
+    MaterialProperties brownPlastic = {
+            vec4(0.33f, 0.22f, 0.03f, 1.0f), //ambient
+            vec4(0.78f, 0.57f, 0.11f, 1.0f), //diffuse
+            vec4(0.99f, 0.91f, 0.81f, 1.0f), //specular
+            20.0f, //shininess
+            {0.0f, 0.0f, 0.0f}  //pad //pad
+    };
+
     Materials.push_back(redPlastic);
     Materials.push_back(greenPlastic);
     Materials.push_back(bluePlastic);
     Materials.push_back(whitePlastic);
     Materials.push_back(yellowPlastic);
+    Materials.push_back(brownPlastic);
 
     glGenBuffers(NumMaterialBuffers, MaterialBuffers);
     glBindBuffer(GL_UNIFORM_BUFFER, MaterialBuffers[MaterialBuffer]);
@@ -479,21 +588,35 @@ void build_lights( ) {
             {0.0f, 0.0f}  //pad2
     };
 
-    LightProperties whitePointLightAgain = {
-            POINT, //type
+    LightProperties doorLight = {
+            SPOT, //type
             {0.0f, 0.0f, 0.0f}, //pad
-            vec4(0.0f, 0.0f, 0.0f, 1.0f), //ambient
+            vec4(0.2f, 0.2f, 0.2f, 1.0f), //ambient
             vec4(1.0f, 1.0f, 1.0f, 1.0f), //diffuse
             vec4(1.0f, 1.0f, 1.0f, 1.0f), //specular
-            vec4(6.0f, 4.0f, 0.0f, 1.0f),  //position
-            vec4(0.0f, 0.0f, 0.0f, 0.0f), //direction
-            0.0f,   //cutoff
-            0.0f,  //exponent
+            vec4(door_coords[x] - 1, 9.0f, door_coords[z], 1.0f),  //position
+            vec4(0.0f, -1.0f, 0.0f, 0.0f), //direction
+            10.0f,   //cutoff
+            10.0f,  //exponent
+            {0.0f, 0.0f}  //pad2
+    };
+
+    LightProperties paintingLight = {
+            SPOT, //type
+            {0.0f, 0.0f, 0.0f}, //pad
+            vec4(0.2f, 0.2f, 0.2f, 1.0f), //ambient
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //diffuse
+            vec4(1.0f, 1.0f, 1.0f, 1.0f), //specular
+            vec4(painting_coords[x], 9.0f, painting_coords[z] - 1, 1.0f),  //position
+            vec4(0.0f, -1.0f, 0.0f, 0.0f), //direction
+            10.0f,   //cutoff
+            10.0f,  //exponent
             {0.0f, 0.0f}  //pad2
     };
 
     Lights.push_back(whitePointLight);
-    Lights.push_back(whitePointLightAgain);
+    Lights.push_back(doorLight);
+    Lights.push_back(paintingLight);
 
     // Set numLights
     numLights = Lights.size();
@@ -518,6 +641,18 @@ void build_textures() {
 
     load_texture(blankFile, Blank, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
                  GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(megadethFile, Megadeth, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(babcockFile, Babcock, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(hakeFile, Hake, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(moscolaFile, Moscola, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(zellerFile, Zeller, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(floorFile, Floor, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -526,43 +661,74 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         glfwSetWindowShouldClose(window, true);
     }
 
-    if (key == GLFW_KEY_0 && action == GLFW_RELEASE) {
-        lightOn[WhitePointLight] = (lightOn[WhitePointLight]+1)%2;
+    if (key == GLFW_KEY_0 && action == GLFW_PRESS) {
+        lightOn[WhitePointLight] = (lightOn[WhitePointLight] + 1) % 2;
     }
 
-    if (key == GLFW_KEY_1 && action == GLFW_RELEASE) {
-        lightOn[WhitePointLightAgain] = (lightOn[WhitePointLightAgain]+1)%2;
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        lightOn[DoorLight] = (lightOn[DoorLight] + 1) % 2;
+    }
+
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        lightOn[PaintingLight] = (lightOn[PaintingLight] + 1) % 2;
+    }
+
+    if (key == GLFW_KEY_O && action == GLFW_PRESS) {
+        pyr_dance = (pyr_dance + 1) % 2;
+    }
+
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        first_person = (first_person + 1) % 2;
     }
 
     // Adjust azimuth
     if (key == GLFW_KEY_A) {
-        azimuth += daz;
-        if (azimuth > 360.0) {
-            azimuth -= 360.0;
+        if (!first_person) {
+            azimuth += daz;
+            if (azimuth > 360.0) {
+                azimuth -= 360.0;
+            }
+        } else {
+            camera_angle -= 0.1f;
         }
+
     } else if (key == GLFW_KEY_D) {
-        azimuth -= daz;
-        if (azimuth < 0.0)
-        {
-            azimuth += 360.0;
+        if (!first_person) {
+            azimuth -= daz;
+            if (azimuth < 0.0)
+            {
+                azimuth += 360.0;
+            }
+        } else {
+            camera_angle += 0.1f;
         }
     }
 
     // Adjust elevation angle
     if (key == GLFW_KEY_W)
     {
-        elevation += del;
-        if (elevation > 179.0)
-        {
-            elevation = 179.0;
+        if (!first_person) {
+            elevation += del;
+            if (elevation > 179.0)
+            {
+                elevation = 179.0;
+            }
+        } else {
+            first_person_dir = first_person_center - first_person_eye;
+            first_person_eye = first_person_eye + (first_person_dir * step_size);
         }
     }
     else if (key == GLFW_KEY_S)
     {
-        elevation -= del;
-        if (elevation < 1.0)
-        {
-            elevation = 1.0;
+        if (!first_person) {
+            elevation -= del;
+            if (elevation < 1.0)
+            {
+                elevation = 1.0;
+            }
+        } else {
+            first_person_dir = first_person_center - first_person_eye;
+            first_person_eye = first_person_eye - (first_person_dir * step_size);
         }
     }
 
