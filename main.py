@@ -3,7 +3,17 @@ from pygame import Surface
 import chatgpt
 
 
-def main():
+def test_api_calls():
+    character_desc: str = ("Dr. Moscola is a professor who hates the Windows operating system. Dr. Babcock is a professor"
+                           "who loves his Mac.")
+    conversation: str = "A conversation between Dr. Moscola and Dr. Babcock about AI generating stories"
+
+    result: str = chatgpt.call_api(character_desc, conversation)
+
+    print(result)
+
+
+def pygame_stuff():
     pygame.init()
 
     x_dim: int = 600
@@ -23,6 +33,10 @@ def main():
                 status = False
 
     pygame.quit()
+
+
+def main():
+    test_api_calls()
 
 
 if __name__ == "__main__":
