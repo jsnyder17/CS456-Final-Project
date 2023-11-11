@@ -12,10 +12,6 @@ STR_API_KEY_FILE: str = "./resources/api_key.txt"
 STR_PROMPT_FORMAT: str = "{character_desc}. Provide the JSON to:{conversation}"
 
 
-client = OpenAI(api_key=open(STR_API_KEY_FILE, "r").read())
-messages: list[dict[str, str]] = [{STR_HEADER_ROLE: STR_ROLE_SYSTEM, STR_HEADER_CONTENT: "Please generate my scripts."}]
-
-
 def call_api(character_desc: str, conversation: str) -> str:
     """
     Sends an API request to ChatGPT
@@ -23,6 +19,10 @@ def call_api(character_desc: str, conversation: str) -> str:
     :param conversation:
     :return JSON of the generated script:
     """
+    client = OpenAI(api_key=open(STR_API_KEY_FILE, "r").read())
+    messages: list[dict[str, str]] = [
+        {STR_HEADER_ROLE: STR_ROLE_SYSTEM, STR_HEADER_CONTENT: "Please generate my scripts."}]
+
     prompt: str = STR_PROMPT_FORMAT.format(character_desc=character_desc, conversation=conversation)
 
     messages.append({STR_HEADER_ROLE: STR_ROLE_USER, STR_HEADER_CONTENT: prompt})
