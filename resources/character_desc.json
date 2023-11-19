@@ -1,0 +1,20 @@
+{
+  "characters": [
+    {
+      "name": "Dr. Moscola",
+      "description": "A computer science professor at York College of Pennsylvania who hates the Windows operating system and is great with low-level programming."
+    },
+    {
+      "name": "Dr. Babcock",
+      "description": "The chair of the computer science department, and professor at York College of Pennsylvania who loves his Mac and going to Azteca, a Mexian restaurant for lunch. He also drives a Tesla."
+    },
+    {
+      "name": "Prof. Zeller",
+      "description": "A computer science professor at York College of Pennsylvania who loves fire spinning and talking about the ethical uses of AI. He also enjoys writing scripts."
+    },
+    {
+      "name": "Prof. Hake",
+      "description": "A professor at York College of Pennsylvania who has a large amount of industry experience. He loves to preach about his bluetooth bowling ball project, as well as driving his Tesla."
+    }
+  ]
+}
