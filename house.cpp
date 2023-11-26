@@ -16,7 +16,7 @@ using namespace vmath;
 using namespace std;
 
 // Vertex array and buffer names
-enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, Chair, CeilingFan, NumVAOs};
+enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, Chair, CeilingFan, Poster, NumVAOs};
 enum ObjBuffer_IDs {PosBuffer, NormBuffer, TexBuffer, NumObjBuffers};
 enum Color_Buffer_IDs {RedCube, WhiteCube, BlueOcta, GreenSphere, SomethingCylinder, NumColorBuffers};
 enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
@@ -53,10 +53,11 @@ const char * vicFile = "../models/vic.obj";
 const char * tableFile = "../models/round_table_again.obj";
 const char * chairFile = "../models/chair_again.obj";
 const char * ceilingFanFile = "../models/ceiling_fan_again.obj";
+const char * posterFile = "../models/poster.obj";
 
 // Texture files
 const char * blankFile = "../textures/blank.png";
-const char * megadethFile = "../megadeth_poster.jpeg";
+const char * megadethFile = "../megadeth.jpeg";
 const char * babcockFile = "../textures/babcock.png";
 const char * hakeFile = "../textures/hake.jpeg";
 const char * moscolaFile = "../textures/moscola.jpeg";
@@ -131,7 +132,7 @@ mat4 wall_scale_matrix = scale(7.025f, 4.0f, 1.0f);
 mat4 floor_scale_matrix = scale(7.0f, 0.1f, 7.0f);
 mat4 obj_scale_matrix = scale(0.5f, 0.5f, 0.5f);
 vec3 door_coords = vec3(3.5f, 0.0f, -1.25f);
-vec3 painting_coords = vec3(0.0f, 1.0f, 3.5f);
+vec3 painting_coords = vec3(0.0f, 0.5f, 3.4f);
 vec3 ceiling_fan_coords = vec3(0.0f, -0.7f, 0.0f);
 vec3 x_axis = { 1.0f, 0.0f, 0.0f };
 vec3 y_axis = { 0.0f, 1.0f, 0.0f };
@@ -161,6 +162,7 @@ void render_objects();
 void render_table();
 void render_chairs();
 void render_ceiling_fan();
+void build_poster(GLuint obj);
 void build_geometry();
 void build_solid_color_buffer(GLuint num_vertices, vec4 color, GLuint buffer);
 void build_materials( );
@@ -263,6 +265,7 @@ int main(int argc, char**argv) {
     while ( !glfwWindowShouldClose( window ) ) {
     	// Draw graphics
         display();
+
         // Update other events like input handling
         glfwPollEvents();
 
@@ -449,6 +452,8 @@ void render_objects() {
     model_matrix = mat4().identity();
     mat4 scale_matrix = mat4().identity();
     mat4 rot_matrix = mat4().identity();
+    mat4 rot_matrix_2 = mat4().identity();
+    mat4 rot_matrix_3 = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
     trans_matrix = translate(-3.5f, 1.0f, -0.5f);
@@ -465,10 +470,13 @@ void render_objects() {
     draw_mat_object(Couch, BluePlastic);
 
     trans_matrix = translate(painting_coords);
-    rot_matrix = rotate(0.0f, z_axis);
-    scale_matrix = scale(1.50f, 1.75f, 0.1f);
-    model_matrix = trans_matrix*rot_matrix*scale_matrix;
-    draw_tex_object(Cube, Hake);
+    rot_matrix = rotate(90.0f, z_axis);
+    rot_matrix_2 = rotate(180.0f, y_axis);
+    rot_matrix_3 = rotate(90.0f, x_axis);
+    //scale_matrix = scale(1.50f, 1.75f, 0.1f);
+    scale_matrix = scale(1.0f, 1.0f, 1.0f);
+    model_matrix = trans_matrix*rot_matrix*rot_matrix_2*rot_matrix_3*scale_matrix;
+    draw_tex_object(Poster, Hake);
 }
 
 void render_table() {
@@ -526,6 +534,64 @@ void render_ceiling_fan() {
     draw_mat_object(CeilingFan, YellowPlastic);
 }
 
+void build_poster(GLuint obj) {
+    // Carpet geometry
+    vector<vec4> vertices;
+    vector<vec2> uvCoords;
+    vector<vec3> indices;
+
+    vertices = {
+            vec4(1.0f, 0.0f, 1.0f, 1.0f),
+            vec4(1.0f, 0.0f, -1.0f, 1.0f),
+            vec4(-1.0f, 0.0f, -1.0f, 1.0f),
+            vec4(-1.0f, 0.0f, 1.0f, 1.0f),
+    };
+
+    /******************************************/
+    /*       INSERT (b) CODE HERE             */
+    /******************************************/
+    // TODO: Add carpet texture coordinates
+    uvCoords = {
+            vec2(1.0f, 1.0f),
+            vec2(0.0f, 1.0f),
+            vec2(0.0f, 0.0f),
+            vec2(1.0f, 0.0f),
+    };
+
+    // Define face indices
+    indices = {
+            {0, 1, 2},
+            {2, 3, 0},
+    };
+    int numFaces = indices.size();
+
+    // Create object vertices and colors from faces
+    vector<vec4> obj_vertices;
+    vector<vec3> obj_normals;
+    vector<vec2> obj_uvs;
+    for (int i = 0; i < numFaces; i++) {
+        for (int j = 0; j < 3; j++) {
+            obj_vertices.push_back(vertices[indices[i][j]]);
+            obj_normals.push_back(vec3(0.0f, 1.0f, 0.0f));
+            obj_uvs.push_back(uvCoords[indices[i][j]]);
+        }
+    }
+
+    // Set numVertices as total number of INDICES
+    numVertices[obj] = 3*numFaces;
+
+    // Generate object buffers for obj
+    glGenBuffers(NumObjBuffers, ObjBuffers[obj]);
+
+    // Bind and load object buffers for obj
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][PosBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*posCoords*numVertices[obj], obj_vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][NormBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*normCoords*numVertices[obj], obj_normals.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TexBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*texCoords*numVertices[obj], obj_uvs.data(), GL_STATIC_DRAW);
+}
+
 void build_geometry() {
     // Generate vertex arrays and buffers
     glGenVertexArrays(NumVAOs, VAOs);
@@ -541,6 +607,9 @@ void build_geometry() {
     load_model(tableFile, Table);
     load_model(chairFile, Chair);
     load_model(ceilingFanFile, CeilingFan);
+    load_model(posterFile, Poster);
+
+    build_poster(Poster);
 
     // Generate color buffers
     glGenBuffers(NumColorBuffers, ColorBuffers);
