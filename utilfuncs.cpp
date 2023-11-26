@@ -33,6 +33,36 @@ void load_model(const char * filename, GLuint obj) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+void load_bump_model(const char * filename, GLuint obj) {
+    vector<vec4> vertices;
+    vector<vec2> uvCoords;
+    vector<vec3> normals;
+    vector<vec3> tangents;
+    vector<vec3> bitangents;
+
+    // Load model and set number of vertices
+    loadOBJ(filename, vertices, uvCoords, normals);
+    numVertices[obj] = vertices.size();
+
+    // TODO: Compute tangents and bitangents
+    _computeTangentBasis(vertices, uvCoords, normals, tangents, bitangents);
+
+    // Create and load object buffers
+    glGenBuffers(NumObjBuffers, ObjBuffers[obj]);
+    glBindVertexArray(VAOs[obj]);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][PosBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*posCoords*numVertices[obj], vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][NormBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*normCoords*numVertices[obj], normals.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TexBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*texCoords*numVertices[obj], uvCoords.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TangBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*tangCoords*numVertices[obj], tangents.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][BiTangBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*bitangCoords*numVertices[obj], bitangents.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void load_texture(const char * filename, GLuint texID, GLint magFilter, GLint minFilter, GLint sWrap, GLint tWrap, bool mipMap, bool invert) {
     int w, h, n;
     int force_channels = 4;
@@ -205,6 +235,73 @@ void draw_tex_object(GLuint obj, GLuint texture){
     glDrawArrays(GL_TRIANGLES, 0, numVertices[obj]);
 }
 
+void draw_bump_object(GLuint obj, GLuint base_texture, GLuint normal_map){
+    // Select shader program
+    glUseProgram(bump_program);
+
+    // Pass projection and camera matrices to shader
+    glUniformMatrix4fv(bump_proj_mat_loc, 1, GL_FALSE, proj_matrix);
+    glUniformMatrix4fv(bump_camera_mat_loc, 1, GL_FALSE, camera_matrix);
+
+    // Bind lights
+    glUniformBlockBinding(bump_program, bump_lights_block_idx, 0);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, LightBuffers[LightBuffer], 0, Lights.size() * sizeof(LightProperties));
+
+    // Set camera position
+    glUniform3fv(bump_eye_loc, 1, eye);
+
+    // Set num lights and lightOn
+    glUniform1i(bump_num_lights_loc, numLights);
+    glUniform1iv(bump_light_on_loc, numLights, lightOn);
+
+    // Pass model matrix and normal matrix to shader
+    glUniformMatrix4fv(bump_model_mat_loc, 1, GL_FALSE, model_matrix);
+    glUniformMatrix4fv(bump_norm_mat_loc, 1, GL_FALSE, normal_matrix);
+
+    // Set base texture to texture unit 0 and make it active
+    glUniform1i(bump_base_loc, 0);
+    glActiveTexture(GL_TEXTURE0);
+    // Bind base texture (to unit 0)
+    glBindTexture(GL_TEXTURE_2D, TextureIDs[base_texture]);
+
+    // Set normal map texture to texture unit 1 and make it active
+    glUniform1i(bump_norm_loc, 1);
+    glActiveTexture(GL_TEXTURE1);
+    // Bind normal map texture (to unit 1)
+    glBindTexture(GL_TEXTURE_2D, TextureIDs[normal_map]);
+
+    // Bind vertex array
+    glBindVertexArray(VAOs[obj]);
+
+    // Bind position object buffer and set attributes
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][PosBuffer]);
+    glVertexAttribPointer(bump_vPos, posCoords, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(bump_vPos);
+
+    // Bind normal object buffer and set attributes
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][NormBuffer]);
+    glVertexAttribPointer(bump_vNorm, normCoords, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(bump_vNorm);
+
+    // Bind texture object buffer and set attributes
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TexBuffer]);
+    glVertexAttribPointer(bump_vTex, texCoords, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(bump_vTex);
+
+    // Bind tangent object buffer and set attributes
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TangBuffer]);
+    glVertexAttribPointer(bump_vTang, tangCoords, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(bump_vTang);
+
+    // Bind bitangent object buffer and set attributes
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][BiTangBuffer]);
+    glVertexAttribPointer(bump_vBiTang, bitangCoords, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(bump_vBiTang);
+
+    // Draw object
+    glDrawArrays(GL_TRIANGLES, 0, numVertices[obj]);
+}
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
 
@@ -212,3 +309,76 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     hh = height;
 }
 
+
+void _computeTangentBasis(
+        // inputs
+        std::vector<vec4> & vertices,
+        std::vector<vec2> & uvs,
+        std::vector<vec3> & normals,
+        // outputs
+        std::vector<vec3> & tangents,
+        std::vector<vec3> & binormals
+){
+
+    for (unsigned int i=0; i<vertices.size(); i+=3 ){
+
+        // Shortcuts for vertices
+        vec4 & v0 = vertices[i+0];
+        vec4 & v1 = vertices[i+1];
+        vec4 & v2 = vertices[i+2];
+
+        // Shortcuts for UVs
+        vec2 & uv0 = uvs[i+0];
+        vec2 & uv1 = uvs[i+1];
+        vec2 & uv2 = uvs[i+2];
+
+        // Edges of the triangle : postion delta
+        vec3 deltaPos1;
+        deltaPos1[0] = v1[0]-v0[0];
+        deltaPos1[1] = v1[1]-v0[1];
+        deltaPos1[2] = v1[2]-v0[2];
+        vec3 deltaPos2;
+        deltaPos2[0] = v2[0]-v0[0];
+        deltaPos2[1] = v2[1]-v0[1];
+        deltaPos2[2] = v2[2]-v0[2];
+
+        // UV delta
+        vec2 deltaUV1 = uv1-uv0;
+        vec2 deltaUV2 = uv2-uv0;
+
+        float r = 1.0f / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
+        vec3 tangent = (deltaPos1 * deltaUV2[1]   - deltaPos2 * deltaUV1[1])*r;
+        vec3 binormal = (deltaPos2 * deltaUV1[0]   - deltaPos1 * deltaUV2[0])*r;
+
+        // Set the same tangent for all three vertices of the triangle.
+        // They will be merged later, in vboindexer.cpp
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
+
+        // Same thing for binormals
+        binormals.push_back(binormal);
+        binormals.push_back(binormal);
+        binormals.push_back(binormal);
+
+    }
+
+    // See "Going Further"
+    for (unsigned int i=0; i<vertices.size(); i+=1 )
+    {
+        vec3 & n = normals[i];
+        vec3 & t = tangents[i];
+        vec3 & b = binormals[i];
+
+        // Gram-Schmidt orthogonalize
+        t = normalize(t - n * dot(n, t));
+
+        // Calculate handedness
+        if (dot(cross(n, t), b) < 0.0f){
+            t = t * -1.0f;
+        }
+
+    }
+
+
+}
