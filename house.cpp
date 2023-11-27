@@ -16,13 +16,13 @@ using namespace vmath;
 using namespace std;
 
 // Vertex array and buffer names
-enum VAO_IDs {Cube, Octahedron, Sphere, Cylinder, Sus, Couch, Vic, Table, Chair, CeilingFan, Poster, NumVAOs};
+enum VAO_IDs {Cube, Sphere, Couch, Table, Chair, CeilingFan, Poster, NumVAOs};
 enum ObjBuffer_IDs {PosBuffer, NormBuffer, TexBuffer, TangBuffer, BiTangBuffer, NumObjBuffers};
 enum Color_Buffer_IDs {RedCube, WhiteCube, BlueOcta, GreenSphere, SomethingCylinder, NumColorBuffers};
 enum LightBuffer_IDs {LightBuffer, NumLightBuffers};
 enum MaterialBuffer_IDs {MaterialBuffer, NumMaterialBuffers};
 enum MaterialNames {RedPlastic, GreenPlastic, BluePlastic, WhitePlastic, YellowPlastic, BrownPlastic};
-enum Textures {Blank, Megadeth, Floor, Wood, WoodNormOut, Wall, WallNormFlat, WallNormOut, NumTextures};
+enum Textures {Blank, Megadeth, MegadethNormFlat, Floor, Wood, WoodNormOut, Wall, WallNormFlat, WallNormOut, NumTextures};
 enum LightNames {WhitePointLight, DoorLight, PaintingLight, CeilingFanLight};
 
 // Vertex array and buffer objects
@@ -46,12 +46,7 @@ GLint bitangCoords = 3;
 
 // Model files
 const char * cubeFile = "../models/unitcube.obj";
-const char * octaFile = "../models/octahedron.obj";
-const char * sphereFile = "../models/sphere.obj";
-const char * cylinderFile = "../models/cylinder.obj";
-const char * susFile = "../models/sus.obj";
 const char * couchFile = "../models/couch.obj";
-const char * vicFile = "../models/vic.obj";
 const char * tableFile = "../models/round_table_again.obj";
 const char * chairFile = "../models/chair_again.obj";
 const char * ceilingFanFile = "../models/ceiling_fan_again.obj";
@@ -60,7 +55,9 @@ const char * posterFile = "../models/poster.obj";
 // Texture files
 const char * blankFile = "../textures/blank.png";
 const char * megadethFile = "../textures/megadeth.jpg";
+const char * megadethNormFlatFile = "../textures/megadethnormflat.png";
 const char * woodFile = "../textures/wood.jpg";
+const char * woodNormOutFile = "../textures/woodnormout.jpg";
 const char * wallFile = "../textures/wall4.png";
 const char * wallNormFlatFile = "../textures/wallnormflat.png";
 const char * wallNormOutFile = "../textures/wallnormout.png";
@@ -151,7 +148,6 @@ GLint ww,hh;
 // My constants
 vec3 wall_scale_matrix = {7.025f, 4.0f, 0.25f};
 vec3 floor_scale_matrix = {7.0f, 0.1f, 7.0f};
-vec3 obj_scale_matrix = {0.5f, 0.5f, 0.5f};
 vec3 door_coords = {3.45f, 0.0f, -1.25f};
 vec3 painting_coords = {0.0f, 0.5f, 3.3f};
 vec3 ceiling_fan_coords = {0.0f, -0.7f, 0.0f};
@@ -162,7 +158,7 @@ vec3 first_person_center = {0.0f, 0.0f, 0.0f};
 vec3 first_person_dir = { 0.0f, 0.0f, 0.0f };
 vec3 first_person_eye = {0.0f, 0.5f, 0.0f};
 GLfloat ortho_constant = 7.0f;
-GLfloat pyr_angle = 0.0f;
+GLfloat fan_angle = 0.0f;
 GLfloat rpm = 3.0f;
 GLfloat camera_angle = 180.0f;
 GLfloat step_size = 0.1f;
@@ -198,7 +194,8 @@ void draw_color_obj(GLuint obj, GLuint color);
 void draw_mat_object(GLuint obj, GLuint material);
 void draw_tex_object(GLuint obj, GLuint texture);
 void draw_bump_object(GLuint obj, GLuint base_texture, GLuint normal_map);
-void _computeTangentBasis(vector<vec4> & vertices, vector<vec2> & uvs, vector<vec3> & normals, vector<vec3> & tangents, vector<vec3> & binormals);
+void _computeTangentBasis(vector<vec4> & vertices, vector<vec2> & uvs, vector<vec3> & normals, vector<vec3> & tangents,
+                          vector<vec3> & binormals);
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
@@ -295,6 +292,9 @@ int main(int argc, char**argv) {
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
+    // Set background color
+    glClearColor(0.0f, 0.0f, 0.7f, 1.0f);
+
     // Set Initial camera position
     GLfloat x, y, z;
     x = (GLfloat)(radius*sin(azimuth*DEG2RAD)*sin(elevation*DEG2RAD));
@@ -330,9 +330,9 @@ int main(int argc, char**argv) {
 }
 
 void calculate_first_person_camera() {
-    first_person_center[x] = first_person_eye[x] + cos(camera_angle);
+    first_person_center[x] = first_person_eye[x] + (float) cos(camera_angle);
     first_person_center[y] = first_person_eye[y];
-    first_person_center[z] = first_person_eye[z] + sin(camera_angle);
+    first_person_center[z] = first_person_eye[z] + (float) sin(camera_angle);
 }
 
 void update_animations() {
@@ -340,7 +340,7 @@ void update_animations() {
     GLdouble dT = curTime - elTime;
 
     if (pyr_dance) {
-        pyr_angle += (float) (dT * (rpm / 60.0) * 360.0) * 4;
+        fan_angle += (float) (dT * (rpm / 60.0) * 360.0) * 4;
     }
 
     elTime = curTime;
@@ -536,12 +536,14 @@ void render_objects() {
     mat4 rot_matrix_3 = mat4().identity();
     mat4 trans_matrix = mat4().identity();
 
+    // Mirror
     trans_matrix = translate(-3.5f, 1.0f, -0.5f);
     scale_matrix = scale(4.5f, 3.5f, 0.1f);
     rot_matrix = rotate(90.0f, y_axis);
     model_matrix = trans_matrix * rot_matrix * scale_matrix;
     draw_mat_object(Cube, RedPlastic);
 
+    // Sofa
     trans_matrix = translate(2.0f, -0.85f, -3.0f);
     rot_matrix = rotate(0.0f, z_axis);
     scale_matrix = scale(1.0f, 1.0f, 1.0f);
@@ -555,7 +557,11 @@ void render_objects() {
     rot_matrix_3 = rotate(90.0f, x_axis);
     scale_matrix = scale(1.0f, 1.0f, 1.0f);
     model_matrix = trans_matrix*rot_matrix*rot_matrix_2*rot_matrix_3*scale_matrix;
-    draw_tex_object(Poster, Megadeth);
+    normal_matrix = model_matrix.inverse().transpose();
+    if (bump)
+        draw_bump_object(Poster, Megadeth, MegadethNormFlat);
+    else
+        draw_tex_object(Poster, Megadeth);
 }
 
 void render_table() {
@@ -614,7 +620,7 @@ void render_ceiling_fan() {
     // Draw fan
     trans_matrix = translate(ceiling_fan_coords);
     scale_matrix = scale(0.004f, 0.004f, 0.004f);
-    rot_matrix = rotate(pyr_angle, y_axis);
+    rot_matrix = rotate(fan_angle, y_axis);
     model_matrix = trans_matrix*scale_matrix*rot_matrix;
     normal_matrix = model_matrix.inverse().transpose();
     draw_mat_object(CeilingFan, YellowPlastic);
@@ -676,6 +682,10 @@ void build_poster(GLuint obj) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*normCoords*numVertices[obj], obj_normals.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TexBuffer]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*texCoords*numVertices[obj], obj_uvs.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][TangBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*tangCoords*numVertices[obj], obj_uvs.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, ObjBuffers[obj][BiTangBuffer]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*bitangCoords*numVertices[obj], obj_uvs.data(), GL_STATIC_DRAW);
 }
 
 void build_geometry() {
@@ -684,34 +694,16 @@ void build_geometry() {
 
     // Load models
     load_bump_model(cubeFile, Cube);
-    load_model(octaFile, Octahedron);
-    load_model(sphereFile, Sphere);
-    load_model(cylinderFile, Cylinder);
-    load_model(susFile, Sus);
     load_model(couchFile, Couch);
-    load_model(vicFile, Vic);
     load_bump_model(tableFile, Table);
     load_bump_model(chairFile, Chair);
     load_model(ceilingFanFile, CeilingFan);
-    load_model(posterFile, Poster);
+    load_bump_model(posterFile, Poster);
 
     build_poster(Poster);
 
     // Generate color buffers
     glGenBuffers(NumColorBuffers, ColorBuffers);
-
-    // Build color buffers
-    // Define cube vertex colors (red)
-    build_solid_color_buffer(numVertices[Cube],
-                             vec4(1.0f, 0.0f, 0.0f, 1.0f), RedCube);
-    build_solid_color_buffer(numVertices[Cube],
-                             vec4(1.0f, 1.0f, 1.0f, 1.0f), WhiteCube);
-    build_solid_color_buffer(numVertices[Octahedron],
-                             vec4(0.0f, 0.0f, 1.0f, 1.0f), BlueOcta);
-    build_solid_color_buffer(numVertices[Sphere],
-                             vec4(0.0f, 1.0f, 0.0f, 1.0f), GreenSphere);
-    build_solid_color_buffer(numVertices[Cylinder],
-                             vec4(1.0f, 1.0f, 0.0f, 1.0f), SomethingCylinder);
 }
 
 void build_materials() {
@@ -861,9 +853,11 @@ void build_textures() {
                  GL_REPEAT, GL_REPEAT, true, false);
     load_texture(megadethFile, Megadeth, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
                  GL_REPEAT, GL_REPEAT, true, false);
+    load_texture(megadethNormFlatFile, MegadethNormFlat, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+                 GL_REPEAT, GL_REPEAT, true, false);
     load_texture(woodFile, Wood, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
                  GL_REPEAT, GL_REPEAT, true, false);
-    load_texture(woodFile, WoodNormOut, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
+    load_texture(woodNormOutFile, WoodNormOut, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
                  GL_REPEAT, GL_REPEAT, true, false);
     load_texture(wallFile, Wall, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR,
                  GL_REPEAT, GL_REPEAT, true, false);
