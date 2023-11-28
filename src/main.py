@@ -21,7 +21,7 @@ def main() -> None:
         if api_key_path == "exit":
             raise Exception("User exit")
 
-        script_handler: ScriptHandler = ScriptHandler(prompt, api_key_path, 800, 800)
+        script_handler: ScriptHandler = ScriptHandler(prompt, 800, 800)
         script_handler.initialize_script_loop()
         script_handler.start_script_loop()
 

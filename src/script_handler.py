@@ -1,4 +1,5 @@
 import logging
+import textwrap
 from logging import Logger
 
 import pygame
@@ -38,14 +39,18 @@ class ScriptHandler:
     text: Surface = None
     text_rect: Rect = None
 
+    text_rects: list[tuple[Surface, Rect, int]] = []
+
     timer: int
 
-    def __init__(self, prompt: str, api_key_file_path: str, x_dim: int, y_dim: int):
+    def __init__(self, prompt: str, x_dim: int, y_dim: int, api_key_file_path: str = "./resources/api_key.txt"):
         self.logger = logging.getLogger("ScriptHandler")
         self.prompt = prompt
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.timer = 0
+
+        self.rect = Rect(150, 500, 500, 500)
 
         self.chatgpt_handler = ChatGPTHandler(api_key_file_path)
         self.json_handler = JSONHandler()
@@ -63,7 +68,7 @@ class ScriptHandler:
         self.generate_script()
         self.load_images()
 
-        self.font = Font('freesansbold.ttf', 12)
+        self.font = Font('freesansbold.ttf', 18)
 
     def load_images(self) -> None:
         self.logger.info("Loading images.")
@@ -109,19 +114,20 @@ class ScriptHandler:
             elif d.get("speaker") == "Prof. Zeller":
                 self.curr_image = self.images_list[Images.ZELLER.value]
 
-            self.text = self.font.render(d.get("speech"), True, self.white, self.black)
-            self.text_rect = self.text.get_rect()
-            self.text_rect.center = (self.x_dim // 2, self.y_dim // 2)
-            self.text_rect.scale_by(0.5, 1)
-            self.screen.blit(self.text, self.text_rect)
-            self.screen.blit(self.curr_image, (self.x_dim / 2, 0))
+            # Display image of speaker
+            self.screen.blit(self.curr_image, (325, 300))
+
+            # Display speaker's line
+            self.draw_text(d.get("speech"), self.white, self.black, True)
 
             pygame.display.flip()
 
+            # Transition through each line every 4 seconds
             start_ticks: int = time.get_ticks()
-            while self.timer < 3000:
+            while self.timer < 5000:
                 self.timer = time.get_ticks() - start_ticks
 
+            # Prepare for the next speaker
             self.clear_text_area()
             self.timer = 0
 
@@ -146,6 +152,48 @@ class ScriptHandler:
 
         self.curr_script = self.json_handler.parse_json(result, "conversation")
 
+        # file_data: str = open("./resources/example_output.json").read()
+        # self.curr_script = self.json_handler.parse_json(file_data, "conversation")
+
     def clear_text_area(self) -> None:
-        self.text.fill(self.black, self.text.get_rect())
-        self.screen.blit(self.text, self.text_rect)
+        for t in self.text_rects:
+            t[0].fill(self.black, t[0].get_rect())
+            self.screen.blit(t[0], (t[1].left, t[2]))
+
+        self.text_rects.clear()
+
+    def draw_text(self, text: str, color: tuple[int, int, int], bkg: tuple[int, int, int], aa = False) \
+            -> Surface:
+        rect: Rect = Rect(self.rect)
+        y: int = rect.top
+        line_spacing: int = -2
+
+        # Get the height of the font
+        font_height: int = self.font.size("Tg")[1]
+
+        while text:
+            i: int = 1
+
+            # Determine if the row of text will be outside our area
+            if y + font_height > rect.bottom:
+                break
+
+            # Determine maximum width of line
+            while self.font.size(text[:i])[0] < rect.width and i < len(text):
+                i += 1
+
+            # If we've wrapped the text, then adjust the wrap to the last word
+            if i < len(text):
+                i = text.rfind(" ", 0, i) + 1
+
+            # Render the line and blit it to the surface
+            text_render: Surface = self.font.render(text[:i], aa, color, bkg)
+            self.screen.blit(text_render, (rect.left, y))
+            self.text_rects.append((text_render, rect, y))
+
+            y += font_height + line_spacing
+
+            # Remove the text we just blitted
+            text = text[i:]
+
+        return text
