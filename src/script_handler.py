@@ -68,7 +68,7 @@ class ScriptHandler:
         self.generate_script()
         self.load_images()
 
-        self.font = Font('freesansbold.ttf', 18)
+        self.font = Font('freesansbold.ttf', 24)
 
     def load_images(self) -> None:
         self.logger.info("Loading images.")
@@ -78,6 +78,7 @@ class ScriptHandler:
         self.images_list.append(pygame.image.load("./resources/hake.jpeg").convert())
         self.images_list.append(pygame.image.load("./resources/moscola.jpeg").convert())
         self.images_list.append(pygame.image.load("./resources/zeller.png").convert())
+        self.images_list.append(pygame.image.load("./resources/background.jpg").convert())
 
         logging.log(logging.INFO, "Loaded images.")
 
@@ -114,6 +115,10 @@ class ScriptHandler:
             elif d.get("speaker") == "Prof. Zeller":
                 self.curr_image = self.images_list[Images.ZELLER.value]
 
+            # Display background
+            bg: Surface = pygame.transform.scale(self.images_list[Images.BACKGROUND.value], (self.x_dim, self.y_dim))
+            self.screen.blit(bg, (0, 0))
+
             # Display image of speaker
             self.screen.blit(self.curr_image, (325, 300))
 
@@ -147,13 +152,13 @@ class ScriptHandler:
         self.character_desc = desc_str
 
     def generate_script(self) -> None:
-        result: str = self.chatgpt_handler.call_api(self.character_desc, self.prompt)
-        print(result)
+        # result: str = self.chatgpt_handler.call_api(self.character_desc, self.prompt)
+        # print(result)
 
-        self.curr_script = self.json_handler.parse_json(result, "conversation")
+        # self.curr_script = self.json_handler.parse_json(result, "conversation")
 
-        # file_data: str = open("./resources/example_output.json").read()
-        # self.curr_script = self.json_handler.parse_json(file_data, "conversation")
+        file_data: str = open("./resources/example_output.json").read()
+        self.curr_script = self.json_handler.parse_json(file_data, "conversation")
 
     def clear_text_area(self) -> None:
         for t in self.text_rects:
