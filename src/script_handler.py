@@ -1,15 +1,17 @@
 import logging
+import random
 import textwrap
 from logging import Logger
 
 import pygame
-from pygame import Surface, time, Rect
+from pygame import Surface, time, Rect, mixer
 from pygame.font import Font
 from pygame.threads import Thread
 
 from json_handler import JSONHandler
 from chatgpt import ChatGPTHandler
 from images import Images
+from sounds import Sounds
 
 
 class ScriptHandler:
@@ -68,7 +70,7 @@ class ScriptHandler:
         self.generate_script()
         self.load_images()
 
-        self.font = Font('freesansbold.ttf', 24)
+        self.font = Font('freesansbold.ttf', 26)
 
     def load_images(self) -> None:
         self.logger.info("Loading images.")
@@ -102,6 +104,12 @@ class ScriptHandler:
     def run_script(self) -> None:
         print("Playing script.")
         print(self.prompt)
+
+        # Initialize the mixer and play the background music
+        mixer.init()
+        mixer.Channel(Sounds.MUSIC.value).play(mixer.Sound("./resources/Investigations.mp3"))
+
+        # Iterate through each line of the script
         for d in self.curr_script:
             if d.get("speaker") == "Dr. Babcock":
                 self.curr_image = self.images_list[Images.BABCOCK.value]
@@ -125,7 +133,12 @@ class ScriptHandler:
             # Display speaker's line
             self.draw_text(d.get("speech"), self.white, self.black, True)
 
+            # Update the entire display
             pygame.display.flip()
+
+            # Play dialog and random sound effect
+            mixer.Channel(Sounds.DIALOG.value).play(mixer.Sound("./resources/speak.mp3"), 0, 2000)
+            self.play_random_sound()
 
             # Transition through each line every 4 seconds
             start_ticks: int = time.get_ticks()
@@ -152,13 +165,23 @@ class ScriptHandler:
         self.character_desc = desc_str
 
     def generate_script(self) -> None:
-        # result: str = self.chatgpt_handler.call_api(self.character_desc, self.prompt)
-        # print(result)
+        result: str = self.chatgpt_handler.call_api(self.character_desc, self.prompt)
+        print(result)
 
-        # self.curr_script = self.json_handler.parse_json(result, "conversation")
+        self.curr_script = self.json_handler.parse_json(result, "conversation")
 
-        file_data: str = open("./resources/example_output.json").read()
-        self.curr_script = self.json_handler.parse_json(file_data, "conversation")
+        # file_data: str = open("./resources/example_output.json").read()
+        # self.curr_script = self.json_handler.parse_json(file_data, "conversation")
+
+    # noinspection PyMethodMayBeStatic
+    def play_random_sound(self) -> None:
+        play_sound: int = random.randrange(0, 10)
+        if play_sound % 2:
+            sound: int = random.randrange(0, 2)
+            if sound == 0:
+                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("./resources/laugh.mp3"))
+            elif sound == 1:
+                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("./resources/boowomp.mp3"))
 
     def clear_text_area(self) -> None:
         for t in self.text_rects:
