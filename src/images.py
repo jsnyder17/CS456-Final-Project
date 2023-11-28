@@ -6,3 +6,4 @@ class Images(Enum):
     HAKE = 1
     MOSCOLA = 2
     ZELLER = 3
+    BACKGROUND = 4
