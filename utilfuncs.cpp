@@ -331,7 +331,7 @@ void draw_frame(GLuint obj){
     // Set frame transformation matrix
     mat4 trans_matrix = translate(mirror_eye);
     mat4 rot_matrix = rotate(90.0f, z_axis);
-    mat4 scale_matrix = scale(3.5f, 0.0f, 4.5f);
+    mat4 scale_matrix = scale(0.5f, 0.0f, 1.5f);
     model_matrix = trans_matrix * rot_matrix * scale_matrix;
     // Compute normal matrix from model matrix
     normal_matrix = model_matrix.inverse().transpose();

@@ -157,8 +157,8 @@ vec3 z_axis = { 0.0f, 0.0f, 1.0f };
 vec3 first_person_center = {0.0f, 0.0f, 0.0f};
 vec3 first_person_dir = { 0.0f, 0.0f, 0.0f };
 vec3 first_person_eye = {0.0f, 0.5f, 0.0f};
-vec3 mirror_center {20.0f, 12.0f, 0.0f};
-vec3 mirror_eye = {-3.5f, 1.0f, -0.5f};
+vec3 mirror_center {15.0f, 0.5f, 0.0f};
+vec3 mirror_eye = {-3.5f, 0.5f, -0.5f};
 GLfloat ortho_constant = 7.0f;
 GLfloat fan_angle = 0.0f;
 GLfloat rpm = 3.0f;
@@ -345,11 +345,13 @@ void create_mirror() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Compute anisotropic scaling
-    GLfloat xratio = 6.0f;
+    GLfloat xratio = 5.0f;
     GLfloat yratio = 1.0f;
+    GLfloat top_yratio = 7.25f;
+    GLfloat bottom_yratio = 1.0f;
 
     // TODO: Set mirror projection matrix
-    proj_matrix = frustum(-1.0f * xratio, 1.0f * xratio, -1.75f * yratio, 7.25f * yratio, 1.0f, 100.0f);
+    proj_matrix = frustum(-1.0f * xratio, 1.0f * xratio, -1.0f * bottom_yratio, 1.0f * top_yratio, 1.0f, 100.0f);
 
     // TODO: Set mirror camera matrix
     camera_matrix = lookat(mirror_eye, mirror_center, up);
