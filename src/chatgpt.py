@@ -18,7 +18,7 @@ class ChatGPTHandler:
     logger: Logger
     api_key_file_path: str
 
-    def __init__(self, api_key_file_path: str = "./resources/api_key.txt"):
+    def __init__(self, api_key_file_path: str = "../resources/api_key.txt"):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.api_key_file_path = api_key_file_path
 

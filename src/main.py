@@ -8,7 +8,7 @@ def input_prompt() -> str:
 
 
 def input_api_key_path() -> str:
-    return input("Enter the path to your api key file 'api_key.txt'\nDefault is './resources/api_key.txt' -> ")
+    return input("Enter the path to your api key file 'api_key.txt'\nDefault is '../resources/api_key.txt' -> ")
 
 
 def main() -> None:

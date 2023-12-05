@@ -1,6 +1,5 @@
 import logging
 import random
-import textwrap
 from logging import Logger
 
 import pygame
@@ -45,7 +44,7 @@ class ScriptHandler:
 
     timer: int
 
-    def __init__(self, prompt: str, x_dim: int, y_dim: int, api_key_file_path: str = "./resources/api_key.txt"):
+    def __init__(self, prompt: str, x_dim: int, y_dim: int, api_key_file_path: str = "../resources/api_key.txt"):
         self.logger = logging.getLogger("ScriptHandler")
         self.prompt = prompt
         self.x_dim = x_dim
@@ -76,11 +75,11 @@ class ScriptHandler:
         self.logger.info("Loading images.")
         print("Loading images.")
 
-        self.images_list.append(pygame.image.load("./resources/babcock.png").convert())
-        self.images_list.append(pygame.image.load("./resources/hake.jpeg").convert())
-        self.images_list.append(pygame.image.load("./resources/moscola.jpeg").convert())
-        self.images_list.append(pygame.image.load("./resources/zeller.png").convert())
-        self.images_list.append(pygame.image.load("./resources/background.jpg").convert())
+        self.images_list.append(pygame.image.load("../resources/babcock.png").convert())
+        self.images_list.append(pygame.image.load("../resources/hake.jpeg").convert())
+        self.images_list.append(pygame.image.load("../resources/moscola.jpeg").convert())
+        self.images_list.append(pygame.image.load("../resources/zeller.png").convert())
+        self.images_list.append(pygame.image.load("../resources/background.jpg").convert())
 
         logging.log(logging.INFO, "Loaded images.")
 
@@ -107,7 +106,7 @@ class ScriptHandler:
 
         # Initialize the mixer and play the background music
         mixer.init()
-        mixer.Channel(Sounds.MUSIC.value).play(mixer.Sound("./resources/Investigations.mp3"))
+        mixer.Channel(Sounds.MUSIC.value).play(mixer.Sound("../resources/Investigations.mp3"))
 
         # Iterate through each line of the script
         for d in self.curr_script:
@@ -137,10 +136,10 @@ class ScriptHandler:
             pygame.display.flip()
 
             # Play dialog and random sound effect
-            mixer.Channel(Sounds.DIALOG.value).play(mixer.Sound("./resources/speak.mp3"), 0, 2000)
+            mixer.Channel(Sounds.DIALOG.value).play(mixer.Sound("../resources/speak.mp3"), 0, 2000)
             self.play_random_sound()
 
-            # Transition through each line every 4 seconds
+            # Transition through each line every 5 seconds
             start_ticks: int = time.get_ticks()
             while self.timer < 5000:
                 self.timer = time.get_ticks() - start_ticks
@@ -156,7 +155,7 @@ class ScriptHandler:
 
         desc_str: str = ""
 
-        file_data: str = open("./resources/character_desc.json", "r").read()
+        file_data: str = open("../resources/character_desc.json", "r").read()
         json_data: list[dict[str, str]] = self.json_handler.parse_json(file_data, "characters")
 
         for desc in json_data:
@@ -179,9 +178,9 @@ class ScriptHandler:
         if play_sound % 2:
             sound: int = random.randrange(0, 2)
             if sound == 0:
-                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("./resources/laugh.mp3"))
+                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("../resources/laugh.mp3"))
             elif sound == 1:
-                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("./resources/boowomp.mp3"))
+                mixer.Channel(Sounds.SOUND_EFFECT.value).play(mixer.Sound("../resources/boowomp.mp3"))
 
     def clear_text_area(self) -> None:
         for t in self.text_rects:
